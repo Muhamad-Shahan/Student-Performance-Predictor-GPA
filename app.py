@@ -34,7 +34,7 @@ st.markdown("---")
 
 # --- Sidebar Statistics ---
 with st.sidebar:
-    st.header("📊 National GPA Statistics")
+    st.header("📊 GPA Statistics")
     st.markdown("Contextual data on average high school GPAs (4.0 scale):")
     
     st.subheader("By Demographics")
