@@ -1,16 +1,12 @@
 import streamlit as st
 import pandas as pd
 import joblib
-import seaborn as sns
-import matplotlib.pyplot as plt
 
 # Load Data and Model components
 @st.cache_data
 def load_data():
     # Ensure this filename matches your GitHub repo file
     return pd.read_csv('Student_performance_data.csv')
-
-df = load_data()
 
 # Try to load model and scaler
 try:
@@ -19,79 +15,159 @@ try:
 except Exception as e:
     st.error(f"Error loading model artifacts: {e}")
     st.warning("Please ensure model.joblib and scaler.joblib are in the same folder as app.py.")
+    st.stop() # Stop execution if model fails to load
 
-st.title("🎓 Student Performance Predictor (GPA)")
-st.markdown("This app uses Machine Learning to predict student GPA based on academic and lifestyle factors.")
+# --- Page Configuration ---
+st.set_page_config(
+    page_title="Student GPA Predictor",
+    page_icon="🎓",
+    layout="centered"
+)
 
-# Sidebar for Navigation
-page = st.sidebar.selectbox("Navigate", ["Exploratory Data Analysis", "GPA Prediction"])
+# --- Main Title and Description ---
+st.title("🎓 Student GPA Predictor")
+st.markdown("""
+This application uses a machine learning model to estimate a student's Grade Point Average (GPA) based on various academic, demographic, and lifestyle factors.
+Fill in the details below to generate a prediction.
+""")
+st.markdown("---")
 
-if page == "Exploratory Data Analysis":
-    st.header("📊 Exploratory Data Analysis")
-    st.write("Review the correlation between student habits and their GPA.")
+# --- Sidebar Statistics ---
+with st.sidebar:
+    st.header("📊 National GPA Statistics")
+    st.markdown("Contextual data on average high school GPAs (4.0 scale):")
     
-    col_a, col_b = st.columns(2)
+    st.subheader("By Demographics")
+    st.markdown("""
+    * **Overall Average:** ~3.00
+    * **Female Students:** 3.10
+    * **Male Students:** 2.90
+    * **Asian/Pacific Islander:** 3.26
+    * **White:** 3.09
+    * **Hispanic:** 2.84
+    * **Black:** 2.69
+    """)
     
-    with col_a:
-        st.subheader("GPA vs Absences")
-        fig, ax = plt.subplots()
-        sns.scatterplot(data=df, x='Absences', y='GPA', ax=ax, color='red', alpha=0.5)
-        st.pyplot(fig)
-    
-    with col_b:
-        st.subheader("Weekly Study Time")
-        fig2, ax2 = plt.subplots()
-        sns.histplot(df['StudyTimeWeekly'], kde=True, ax=ax2, color='blue')
-        st.pyplot(fig2)
+    st.subheader("By Parental Education")
+    st.markdown("""
+    * **High School Diploma:** ~2.60 - 2.80
+    * **Bachelor's Degree:** ~3.00 - 3.20
+    * **Graduate Degree:** ~3.20 - 3.40
+    """)
+    st.caption("Source: National Center for Education Statistics (NCES) & Recent Academic Studies")
 
-elif page == "GPA Prediction":
-    st.header("🔮 Predict Student GPA")
-    st.info("Fill in the student details below to estimate their GPA.")
-    
-    # Input Fields - Grouped for better UI
+# --- Input Form ---
+st.header("📝 Student Profile")
+
+with st.form("prediction_form"):
+    # Group 1: Demographics & Background
+    st.subheader("1. Demographics & Background")
     col1, col2 = st.columns(2)
     
     with col1:
-        st.subheader("Personal & Academic")
         age = st.slider("Age", 15, 18, 17)
         gender = st.selectbox("Gender", [0, 1], format_func=lambda x: "Male" if x==0 else "Female")
-        ethnicity = st.selectbox("Ethnicity", [0, 1, 2, 3], help="0: Caucasian, 1: African American, 2: Asian, 3: Other")
-        parent_edu = st.selectbox("Parental Education", [0, 1, 2, 3, 4], help="0: None, 1: High School, 2: Some College, 3: Bachelor, 4: Higher")
-        study_time = st.number_input("Weekly Study Time (0-20 Hours)", 0.0, 20.0, 10.0)
-        absences = st.number_input("Total Absences (0-30)", 0, 30, 5)
-
+        
     with col2:
-        st.subheader("Support & Activities")
-        tutoring = st.radio("Tutoring Support", [0, 1], format_func=lambda x: "No" if x==0 else "Yes")
-        parent_support = st.selectbox("Parental Support Level", [0, 1, 2, 3, 4], help="0: None to 4: Very High")
-        extracurricular = st.radio("Extracurricular Activities", [0, 1], format_func=lambda x: "No" if x==0 else "Yes")
-        sports = st.radio("Participates in Sports", [0, 1], format_func=lambda x: "No" if x==0 else "Yes")
-        music = st.radio("Participates in Music", [0, 1], format_func=lambda x: "No" if x==0 else "Yes")
-        volunteering = st.radio("Volunteering", [0, 1], format_func=lambda x: "No" if x==0 else "Yes")
+        ethnicity = st.selectbox(
+            "Ethnicity", 
+            [0, 1, 2, 3], 
+            format_func=lambda x: ["Caucasian", "African American", "Asian", "Other"][x]
+        )
+        parent_edu = st.selectbox(
+            "Parental Education Level", 
+            [0, 1, 2, 3, 4], 
+            format_func=lambda x: ["None", "High School", "Some College", "Bachelor's", "Higher"][x]
+        )
 
-    # Prediction Logic
-    if st.button("Calculate Estimated GPA"):
-        # 1. Arrange all 12 inputs in the EXACT order of the training columns
-        # Features: Age, Gender, Ethnicity, ParentalEducation, StudyTimeWeekly, Absences, 
-        # Tutoring, ParentalSupport, Extracurricular, Sports, Music, Volunteering
-        input_features = [
-            age, gender, ethnicity, parent_edu, study_time, absences,
-            tutoring, parent_support, extracurricular, sports, music, volunteering
-        ]
+    st.markdown("---")
+
+    # Group 2: Academics & Habits
+    st.subheader("2. Academic Habits")
+    col3, col4 = st.columns(2)
+    
+    with col3:
+        study_time = st.number_input("Weekly Study Time (Hours)", 0.0, 20.0, 10.0, step=0.5)
+        absences = st.number_input("Total Absences (School Year)", 0, 30, 5)
+        tutoring = st.radio("Receives Tutoring?", [0, 1], format_func=lambda x: "No" if x==0 else "Yes", horizontal=True)
+
+    with col4:
+        parent_support = st.selectbox(
+            "Parental Support", 
+            [0, 1, 2, 3, 4], 
+            format_func=lambda x: ["None", "Low", "Moderate", "High", "Very High"][x]
+        )
         
-        # 2. Convert to DataFrame to maintain column structure
-        input_df = pd.DataFrame([input_features])
+    st.markdown("---")
+
+    # Group 3: Activities
+    st.subheader("3. Extracurricular Activities")
+    st.markdown("Check all that apply:")
+    
+    col5, col6, col7, col8 = st.columns(4)
+    with col5:
+        extracurricular = st.checkbox("General Extracurriculars")
+    with col6:
+        sports = st.checkbox("Sports Team")
+    with col7:
+        music = st.checkbox("Music/Arts")
+    with col8:
+        volunteering = st.checkbox("Volunteering")
+
+    # Convert checkboxes to 0/1 for model
+    extracurricular = 1 if extracurricular else 0
+    sports = 1 if sports else 0
+    music = 1 if music else 0
+    volunteering = 1 if volunteering else 0
+
+    st.markdown("###")
+    
+    # Submit Button
+    submitted = st.form_submit_button("🔮 Predict GPA", type="primary", use_container_width=True)
+
+# --- Prediction Logic ---
+if submitted:
+    # 1. Arrange inputs EXACTLY as model expects
+    input_features = [
+        age, gender, ethnicity, parent_edu, study_time, absences,
+        tutoring, parent_support, extracurricular, sports, music, volunteering
+    ]
+    
+    # 2. Create DataFrame
+    input_df = pd.DataFrame([input_features], columns=[
+        'Age', 'Gender', 'Ethnicity', 'ParentalEducation', 'StudyTimeWeekly', 'Absences', 
+        'Tutoring', 'ParentalSupport', 'Extracurricular', 'Sports', 'Music', 'Volunteering'
+    ])
+    
+    # 3. Predict
+    try:
+        input_scaled = scaler.transform(input_df)
+        prediction = model.predict(input_scaled)[0]
         
-        # 3. Apply the fitted scaler and make prediction
-        try:
-            input_scaled = scaler.transform(input_df)
-            prediction = model.predict(input_scaled)
+        # Clamp prediction between 0.0 and 4.0
+        prediction = max(0.0, min(4.0, prediction))
+        
+        st.markdown("---")
+        st.subheader("Prediction Result")
+        
+        # Create columns for result and visual
+        res_col1, res_col2 = st.columns([1, 2])
+        
+        with res_col1:
+            st.metric(label="Estimated GPA", value=f"{prediction:.2f}")
+        
+        with res_col2:
+            st.write("GPA Scale (0.0 - 4.0)")
+            st.progress(prediction / 4.0)
             
-            # Display results
-            st.success(f"### Predicted Student GPA: {prediction[0]:.2f}")
-            
-            # Visual feedback
-            st.progress(min(prediction[0]/4.0, 1.0)) # GPA is usually on a 4.0 scale
-            
-        except Exception as e:
-            st.error(f"Prediction failed. Check if the scaler matches the 12 features. Error: {e}")
+            if prediction >= 3.5:
+                st.success("🌟 Excellent! Keep up the great work!")
+            elif prediction >= 3.0:
+                st.info("✅ Good standing. Consistent effort pays off.")
+            elif prediction >= 2.0:
+                st.warning("⚠️ Average. Consider focusing on study habits or tutoring.")
+            else:
+                st.error("🚨 At Risk. Intervention or extra support may be needed.")
+
+    except Exception as e:
+        st.error(f"An error occurred during prediction: {e}")
